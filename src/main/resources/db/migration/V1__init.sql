@@ -32,7 +32,7 @@ CREATE TABLE posts (
                        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
                        content LONGTEXT NOT NULL COMMENT '原始文本内容',
                        content_html MEDIUMTEXT COMMENT '预渲染HTML (可选)',
-                       visibility ENUM('public','unlisted','private') NOT NULL DEFAULT 'public' COMMENT '公开性',
+                       visibility ENUM('PUBLIC','UNLISTED','PRIVATE') NOT NULL DEFAULT 'PUBLIC' COMMENT '公开性',
                        is_pinned TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否置顶',
                        reply_to_post_id BIGINT UNSIGNED COMMENT '引用的帖子ID',
                        created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
