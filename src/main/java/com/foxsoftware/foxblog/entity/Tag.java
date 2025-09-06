@@ -4,10 +4,17 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
-@Table(name = "tags")
+@Table(
+        name = "tags",
+        indexes = {
+                @Index(name = "uk_tag_name", columnList = "name", unique = true),
+                @Index(name = "idx_tag_created", columnList = "created_at")
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,12 +26,13 @@ public class Tag {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 标签名
     @Column(nullable = false, unique = true, length = 100)
     private String name;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private LocalDateTime createdAt;
 
     @ManyToMany(mappedBy = "tags")
-    private List<Post> posts;
+    private Set<Post> posts = new LinkedHashSet<>();
 }

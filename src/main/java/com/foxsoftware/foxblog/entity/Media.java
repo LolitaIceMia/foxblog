@@ -8,7 +8,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "media")
+@Table(
+        name = "media",
+        indexes = {
+                @Index(name = "idx_media_hash", columnList = "sha256_hash"),
+                @Index(name = "idx_media_created", columnList = "created_at")
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -25,7 +31,7 @@ public class Media {
     @Column(name = "storage_path", nullable = false, length = 1024)
     private String storagePath;
 
-    @Column(name = "mime_type")
+    @Column(name = "mime_type", length = 255)
     private String mimeType;
 
     @Column(name = "size_bytes")
@@ -34,6 +40,6 @@ public class Media {
     @Column(name = "sha256_hash", length = 64)
     private String sha256Hash;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private LocalDateTime createdAt;
 }

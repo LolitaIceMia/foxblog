@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "post_media")
+@Table(
+        name = "post_media"
+)
 @Getter
 @Setter
 @NoArgsConstructor
