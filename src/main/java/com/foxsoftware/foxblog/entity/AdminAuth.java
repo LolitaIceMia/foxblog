@@ -38,6 +38,10 @@ public class AdminAuth {
     @Column(name = "created_at", nullable = false, updatable = false, insertable = false)
     private java.time.LocalDateTime createdAt;
 
+    //启用状态
+    @Column(name = "enabled", nullable = false)
+    private boolean enabled = true;
+
     // 是否已启用 TOTP 2FA
     @Column(name = "two_factor_enabled", nullable = false)
     private boolean twoFactorEnabled = false;

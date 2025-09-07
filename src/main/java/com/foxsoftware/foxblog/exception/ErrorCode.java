@@ -1,0 +1,15 @@
+package com.foxsoftware.foxblog.exception;
+
+public enum ErrorCode {
+    AUTH_INVALID_CREDENTIALS,
+    AUTH_OTP_REQUIRED,
+    AUTH_OTP_INVALID,
+    AUTH_CHALLENGE_EXPIRED,
+    AUTH_TOO_MANY_ATTEMPTS,
+    POST_NOT_FOUND,
+    TAG_NOT_FOUND,
+    MEDIA_NOT_FOUND,
+    INVALID_REQUEST,
+    DUPLICATE_RESOURCE,
+    INTERNAL_ERROR
+}
