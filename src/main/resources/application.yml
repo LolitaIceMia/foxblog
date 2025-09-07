@@ -33,3 +33,15 @@ spring:
           algorithm: "RS256"
       # 是否在启动时打印 key 列表（生产建议 false）
       log-keys-at-startup: true
+
+      ## 生成 RSA 2048 密钥示例
+      #openssl genrsa -out active-private.pem 2048
+      #openssl rsa -in active-private.pem -pubout -out active-public.pem
+      #
+      ## 生成下一把即将轮换的新私钥
+      #openssl genrsa -out next-private.pem 2048
+      #openssl rsa -in next-private.pem -pubout -out next-public.pem
+      #
+      ## ECDSA (P-256) 示例
+      #openssl ecparam -name prime256v1 -genkey -noout -out ec-private.pem
+      #openssl ec -in ec-private.pem -pubout -out ec-public.pem
