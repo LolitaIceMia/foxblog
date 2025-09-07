@@ -72,3 +72,7 @@ CREATE TABLE post_tags (
 CREATE INDEX idx_posts_created ON posts (created_at DESC);
 CREATE INDEX idx_media_hash ON media (sha256_hash);
 CREATE INDEX idx_media_created ON media (created_at DESC);
+
+ALTER TABLE admin_auth
+    ADD COLUMN two_factor_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER created_at,
+    ADD COLUMN totp_secret_base32 VARCHAR(128) NULL AFTER two_factor_enabled;

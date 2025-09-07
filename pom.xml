@@ -74,6 +74,11 @@
             <artifactId>nimbus-jose-jwt</artifactId>
             <version>10.4.2</version>
         </dependency>
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-jdk18on</artifactId>
+            <version>1.78.1</version>
+        </dependency>
 
         <!-- Lombok: 简化实体/DTO -->
         <dependency>
