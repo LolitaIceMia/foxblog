@@ -1,15 +1,13 @@
 package com.foxsoftware.foxblog.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.foxsoftware.foxblog.security.JwtKeyLoader;
-import com.foxsoftware.foxblog.config.JwtProperties;
-import com.foxsoftware.foxblog.service.AdminAuthTotpService;
 import com.nimbusds.jose.*;
-import com.nimbusds.jose.crypto.*;
+import com.nimbusds.jose.crypto.ECDSASigner;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.crypto.ECDSAVerifier;
+import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,50 +20,75 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * 生产环境 JWT 提供者：
- *  - 支持密钥轮换 (active + passive)
- *  - 使用 Nimbus 实现
- *  - 仅签发访问令牌 (短期)，不含 refresh token（可后续扩展）
- *  - 添加 kid 头以支持多密钥验证
+ * 生产用 JWT Provider：
+ *  - 负责：签发 + 验证 + 密钥热加载
+ *  - 实现 JwtTokenGenerator
+ *  - 支持多 kid：active 用于签发，passive 用于验证旧 token
  */
-@Component
-@RequiredArgsConstructor
 @Slf4j
-public class ProductionJwtProvider implements AdminAuthTotpService.JwtProvider {
+@Component
+public class ProductionJwtProvider implements JwtTokenGenerator {
 
-    private final JwtProperties properties;
-    private final JwtKeyLoader keyLoader;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final JwtSecurityProperties props;
+    private final PemKeyLoader pemKeyLoader;
 
-    // 当前密钥集合（可在运行期通过管理接口触发重新加载）
-    private final AtomicReference<JwtKeySet> currentKeysRef = new AtomicReference<>();
+    private final AtomicReference<KeyState> ref = new AtomicReference<>();
+
+    public ProductionJwtProvider(JwtSecurityProperties props, PemKeyLoader pemKeyLoader) {
+        this.props = props;
+        this.pemKeyLoader = pemKeyLoader;
+    }
 
     @PostConstruct
     public void init() {
-        reloadKeys();
+        reload();
     }
 
-    public void reloadKeys() {
-        JwtKeySet set = keyLoader.load();
-        currentKeysRef.set(set);
-        log.info("[JWT] Key set reloaded. Active kid={} loadedAt={}", set.getActiveKeyId(), set.getLoadedAt());
+    public synchronized void reload() {
+        if (props.getActiveKey() == null) {
+            throw new IllegalStateException("spring.security.jwt.active-key 未配置");
+        }
+        var activeSpec = props.getActiveKey();
+
+        PrivateKey activePriv = pemKeyLoader.loadPrivateKey(activeSpec.getPrivatePemLocation());
+        PublicKey activePub = pemKeyLoader.loadPublicKey(activeSpec.getPublicPemLocation());
+
+        Map<String, PublicKey> pubs = new HashMap<>();
+        Map<String, String> algs = new HashMap<>();
+        pubs.put(activeSpec.getId(), activePub);
+        algs.put(activeSpec.getId(), activeSpec.getAlgorithm());
+
+        if (props.getPassiveKeys() != null) {
+            for (var p : props.getPassiveKeys()) {
+                PublicKey pub = pemKeyLoader.loadPublicKey(p.getPublicPemLocation());
+                pubs.put(p.getId(), pub);
+                algs.put(p.getId(), p.getAlgorithm());
+            }
+        }
+
+        ref.set(new KeyState(activeSpec.getId(), activePriv, pubs, algs, Instant.now()));
+        if (props.isLogKeysAtStartup()) {
+            log.info("[JWT] Reloaded keys activeKid={} passiveCount={}", activeSpec.getId(), pubs.size() - 1);
+        }
     }
 
     @Override
     public String generateToken(String subject, Instant issuedAt, Instant expiresAt, List<String> roles) {
-        JwtKeySet ks = currentKeysRef.get();
-        String kid = ks.getActiveKeyId();
-        String alg = ks.getAlgorithm(kid);
+        KeyState ks = state();
+        String kid = ks.getActiveKid();
+        String alg = ks.getAlgorithms().get(kid);
+        if (alg == null) throw new IllegalStateException("Missing algorithm for kid=" + kid);
+
         JWSAlgorithm jwsAlg = JWSAlgorithm.parse(alg);
 
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
                 .subject(subject)
-                .issuer(properties.getIssuer())
+                .issuer(props.getIssuer())
                 .issueTime(Date.from(issuedAt))
-                .expirationTime(Date.from(expiresAt))
                 .notBeforeTime(Date.from(issuedAt.minusSeconds(5)))
+                .expirationTime(Date.from(expiresAt))
                 .jwtID(UUID.randomUUID().toString())
-                .claim("roles", roles)
+                .claim("roles", roles == null ? List.of() : roles)
                 .build();
 
         JWSHeader header = new JWSHeader.Builder(jwsAlg)
@@ -84,98 +107,97 @@ public class ProductionJwtProvider implements AdminAuthTotpService.JwtProvider {
         }
     }
 
-    /**
-     * 解析并验证 token，返回验证后的 claims
-     */
-    public ParsedToken parseAndValidate(String token) throws TokenVerifyException {
+    public VerifiedToken parseAndValidate(String token) throws JwtVerifyException {
         try {
             SignedJWT jwt = SignedJWT.parse(token);
             String kid = jwt.getHeader().getKeyID();
-            if (kid == null) {
-                throw new TokenVerifyException("Missing kid");
-            }
-            JwtKeySet ks = currentKeysRef.get();
-            PublicKey publicKey = ks.getPublicKey(kid);
-            if (publicKey == null) {
-                throw new TokenVerifyException("Unknown kid");
-            }
-            JWSAlgorithm alg = jwt.getHeader().getAlgorithm();
-            if (!alg.getName().equals(ks.getAlgorithm(kid))) {
-                throw new TokenVerifyException("Algorithm mismatch");
-            }
+            if (kid == null || kid.isBlank()) throw new JwtVerifyException("Missing kid");
+            KeyState ks = state();
+            PublicKey publicKey = ks.getPublicKeys().get(kid);
+            if (publicKey == null) throw new JwtVerifyException("Unknown kid");
+            String algName = jwt.getHeader().getAlgorithm().getName();
+            String expectedAlg = ks.getAlgorithms().get(kid);
+            if (!Objects.equals(algName, expectedAlg)) throw new JwtVerifyException("Algorithm mismatch");
 
-            JWSVerifier verifier = buildVerifier(alg, publicKey);
-            if (!jwt.verify(verifier)) {
-                throw new TokenVerifyException("Signature verify failed");
-            }
+            JWSVerifier verifier = buildVerifier(JWSAlgorithm.parse(algName), publicKey);
+            if (!jwt.verify(verifier)) throw new JwtVerifyException("Signature verify failed");
 
             JWTClaimsSet c = jwt.getJWTClaimsSet();
             Instant now = Instant.now();
-            // 时钟偏差
-            long skew = properties.getClockSkewSeconds();
+            long skew = props.getClockSkewSeconds();
 
-            if (c.getExpirationTime() == null || now.isAfter(c.getExpirationTime().toInstant().plusSeconds(skew))) {
-                throw new TokenVerifyException("Token expired");
+            if (c.getExpirationTime() == null ||
+                    now.isAfter(c.getExpirationTime().toInstant().plusSeconds(skew))) {
+                throw new JwtVerifyException("Token expired");
             }
-            if (c.getNotBeforeTime() != null && now.isBefore(c.getNotBeforeTime().toInstant().minusSeconds(skew))) {
-                throw new TokenVerifyException("Token not yet valid");
+            if (c.getNotBeforeTime() != null &&
+                    now.isBefore(c.getNotBeforeTime().toInstant().minusSeconds(skew))) {
+                throw new JwtVerifyException("Token not yet valid");
             }
-            if (properties.getIssuer() != null && !Objects.equals(properties.getIssuer(), c.getIssuer())) {
-                throw new TokenVerifyException("Issuer mismatch");
+            if (props.getIssuer() != null &&
+                    !Objects.equals(props.getIssuer(), c.getIssuer())) {
+                throw new JwtVerifyException("Issuer mismatch");
             }
 
             List<String> roles = Optional.ofNullable(c.getStringListClaim("roles")).orElse(List.of());
-            return new ParsedToken(
+            return new VerifiedToken(
                     c.getSubject(),
                     c.getJWTID(),
                     roles,
-                    c.getIssueTime().toInstant(),
+                    c.getIssueTime() == null ? null : c.getIssueTime().toInstant(),
                     c.getExpirationTime().toInstant(),
                     kid
             );
         } catch (ParseException e) {
-            throw new TokenVerifyException("Parse error: " + e.getMessage());
+            throw new JwtVerifyException("Parse error: " + e.getMessage());
         } catch (JOSEException e) {
-            throw new TokenVerifyException("Verify error: " + e.getMessage());
+            throw new JwtVerifyException("Verify error: " + e.getMessage());
         }
     }
 
-    private JWSSigner buildSigner(JWSAlgorithm alg, PrivateKey key) {
-        return switch (alg.getName()) {
-            case "RS256", "RS384", "RS512" -> new RSASSASigner(key);
-            case "ES256", "ES384", "ES512" -> {
-                try {
-                    yield new ECDSASigner((java.security.interfaces.ECPrivateKey) key);
-                } catch (JOSEException e) {
-                    throw new IllegalStateException("Failed to create ECDSA signer", e);
-                }
-            }
-            default -> throw new IllegalArgumentException("Unsupported alg: " + alg);
-        };
+    private JWSSigner buildSigner(JWSAlgorithm alg, PrivateKey pk) {
+        try {
+            return switch (alg.getName()) {
+                case "RS256", "RS384", "RS512" -> new RSASSASigner(pk);
+                case "ES256", "ES384", "ES512" -> new ECDSASigner((java.security.interfaces.ECPrivateKey) pk);
+                default -> throw new IllegalArgumentException("Unsupported alg: " + alg);
+            };
+        } catch (JOSEException e) {
+            throw new IllegalStateException("Failed to create signer for algorithm: " + alg, e);
+        }
     }
 
-    private JWSVerifier buildVerifier(JWSAlgorithm alg, PublicKey key) {
-        return switch (alg.getName()) {
-            case "RS256", "RS384", "RS512" -> {
-                try {
-                    yield new RSASSAVerifier((java.security.interfaces.RSAPublicKey) key);
-                } catch (Exception e) {
-                    throw new IllegalStateException(e);
-                }
-            }
-            case "ES256", "ES384", "ES512" -> {
-                try {
-                    yield new ECDSAVerifier((java.security.interfaces.ECPublicKey) key);
-                } catch (Exception e) {
-                    throw new IllegalStateException(e);
-                }
-            }
-            default -> throw new IllegalArgumentException("Unsupported alg: " + alg);
-        };
+    private JWSVerifier buildVerifier(JWSAlgorithm alg, PublicKey pk) {
+        try {
+            return switch (alg.getName()) {
+                case "RS256", "RS384", "RS512" -> new RSASSAVerifier((java.security.interfaces.RSAPublicKey) pk);
+                case "ES256", "ES384", "ES512" -> new ECDSAVerifier((java.security.interfaces.ECPublicKey) pk);
+                default -> throw new IllegalArgumentException("Unsupported alg: " + alg);
+            };
+        } catch (JOSEException e) {
+            throw new IllegalStateException("Failed to create verifier for algorithm: " + alg, e);
+        }
+    }
+
+    private KeyState state() {
+        KeyState st = ref.get();
+        if (st == null) throw new IllegalStateException("Keys not loaded");
+        return st;
+    }
+
+    // ============ 内部结构 ============
+
+    @Value
+    private static class KeyState {
+        String activeKid;
+        PrivateKey activePrivateKey;
+        Map<String, PublicKey> publicKeys;
+        Map<String, String> algorithms;
+        Instant loadedAt;
     }
 
     @Value
-    public static class ParsedToken {
+    public static class VerifiedToken {
         String subject;
         String jti;
         List<String> roles;
@@ -184,9 +206,7 @@ public class ProductionJwtProvider implements AdminAuthTotpService.JwtProvider {
         String kid;
     }
 
-    public static class TokenVerifyException extends Exception {
-        public TokenVerifyException(String msg) {
-            super(msg);
-        }
+    public static class JwtVerifyException extends Exception {
+        public JwtVerifyException(String msg) { super(msg); }
     }
 }

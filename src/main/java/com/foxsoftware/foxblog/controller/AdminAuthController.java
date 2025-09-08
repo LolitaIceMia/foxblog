@@ -1,6 +1,5 @@
 package com.foxsoftware.foxblog.controller;
 
-import com.foxsoftware.foxblog.service.AdminAuthTotpService;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,28 +12,26 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AdminAuthController {
 
-    private static final String HEADER_REAL_IP = "X-Real-IP";
-
-    private final AdminAuthTotpService authService;
+    private final AdminAuthService authService;
 
     @PostMapping("/login")
     public ResponseEntity<?> initiate(@RequestBody LoginRequest req,
-                                      @RequestHeader(value = HEADER_REAL_IP, required = false) String ip) {
+                                      @RequestHeader(value = "X-Real-IP", required = false) String ip) {
         var res = authService.initiateLogin(req.getUsername(), req.getPassword(), ip);
         return ResponseEntity.ok(res);
     }
 
     @PostMapping("/2fa/confirm-setup")
     public ResponseEntity<?> confirmSetup(@RequestBody ConfirmSetupRequest req,
-                                          @RequestHeader(value = HEADER_REAL_IP, required = false) String ip) {
+                                          @RequestHeader(value = "X-Real-IP", required = false) String ip) {
         var jwt = authService.confirmSetup(req.getChallengeId(), req.getOtp(), ip);
         return ResponseEntity.ok(jwt);
     }
 
     @PostMapping("/2fa/verify")
-    public ResponseEntity<?> verifyLogin(@RequestBody VerifyRequest req,
-                                         @RequestHeader(value = HEADER_REAL_IP, required = false) String ip) {
-        var jwt = authService.verifyLogin(req.getChallengeId(), req.getOtp(), ip);
+    public ResponseEntity<?> verify(@RequestBody VerifyOtpRequest req,
+                                    @RequestHeader(value = "X-Real-IP", required = false) String ip) {
+        var jwt = authService.verifyOtp(req.getChallengeId(), req.getOtp(), ip);
         return ResponseEntity.ok(jwt);
     }
 
@@ -43,15 +40,13 @@ public class AdminAuthController {
         private String username;
         private String password;
     }
-
     @Data
     public static class ConfirmSetupRequest {
         private UUID challengeId;
         private String otp;
     }
-
     @Data
-    public static class VerifyRequest {
+    public static class VerifyOtpRequest {
         private UUID challengeId;
         private String otp;
     }

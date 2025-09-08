@@ -69,6 +69,10 @@ public final class PemUtils {
     }
 
     private static PrivateKey loadPrivateKeyPKCS8(byte[] der) throws GeneralSecurityException {
+        return getPrivateKey(der);
+    }
+
+    public static PrivateKey getPrivateKey(byte[] der) throws GeneralSecurityException {
         PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(der);
         try {
             return KeyFactory.getInstance("RSA").generatePrivate(spec);
