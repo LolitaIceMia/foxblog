@@ -11,6 +11,12 @@ import jakarta.annotation.PostConstruct;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.security.Key;
+import java.security.KeyFactory;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.util.concurrent.locks.ReentrantLock;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -31,6 +37,8 @@ public class ProductionJwtProvider implements JwtTokenGenerator {
 
     private final JwtSecurityProperties props;
     private final PemKeyLoader pemKeyLoader;
+    private volatile Key jwtPrivateKey;
+    private final ReentrantLock lock = new ReentrantLock();
 
     private final AtomicReference<KeyState> ref = new AtomicReference<>();
 
@@ -38,11 +46,30 @@ public class ProductionJwtProvider implements JwtTokenGenerator {
         this.props = props;
         this.pemKeyLoader = pemKeyLoader;
     }
+    /**
+     * 重新加载JWT密钥（线程安全）
+     */
+    public void reloadKeys() {
+        lock.lock();
+        try {
+            byte[] keyBytes = Files.readAllBytes(Paths.get("config/jwt_private_key.pem"));
+            PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            jwtPrivateKey = kf.generatePrivate(spec);
+            // 如有公钥也可一并加载
+        } catch (Exception e) {
+            throw new RuntimeException("密钥加载失败", e);
+        } finally {
+            lock.unlock();
+        }
+    }
 
     @PostConstruct
     public void init() {
         reload();
     }
+
+
 
     public synchronized void reload() {
         if (props.getActiveKey() == null) {

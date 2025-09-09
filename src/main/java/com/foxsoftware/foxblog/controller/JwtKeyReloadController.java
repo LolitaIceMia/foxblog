@@ -8,9 +8,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
 /**
- * 简单密钥热加载接口（加访问控制：仅 ADMIN）
+ * 提供重新加载JWT密钥的接口。
+ * 仅允许具有ADMIN角色的用户访问此接口。
  */
 @RestController
 @RequestMapping("/api/admin/auth")

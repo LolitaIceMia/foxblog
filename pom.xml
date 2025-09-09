@@ -4,6 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 
     <modelVersion>4.0.0</modelVersion>
+    <repositories>
+        <repository>
+            <id>nju</id>
+            <url>https://repo.nju.edu.cn/maven/</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
     <groupId>com.foxsoftware</groupId>
     <artifactId>foxblog</artifactId>
@@ -86,6 +98,12 @@
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        <dependency>
+            <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+            <artifactId>owasp-java-html-sanitizer</artifactId>
+            <version>20220608.1</version>
+        </dependency>
+
 
         <!-- Flyway: 数据库迁移管理 -->
         <dependency>
@@ -97,17 +115,13 @@
             <artifactId>flexmark-all</artifactId>
             <version>0.64.8</version>
         </dependency>
-        <dependency>
-            <groupId>org.owasp</groupId>
-            <artifactId>owasp-java-html-sanitizer</artifactId>
-            <version>20240325.1</version>
-        </dependency>
         <!-- ========== Test ========== -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 
     <build>
