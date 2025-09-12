@@ -1,47 +1,34 @@
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/blog_app?useSSL=false&serverTimezone=UTC&characterEncoding=utf8mb4
+    url: jdbc:mysql://localhost:3306/blog_app?useSSL=false&serverTimezone=UTC&useUnicode=true&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
     username: fox
     password: foxpassword
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # 可选：保证每次连接协商后字符集一致
+      connection-init-sql: "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
   jpa:
     hibernate:
       naming:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
         use-new-id-generator-mappings: false
-        ddl-auto: validate     # 生产推荐 validate，不要 create-drop
+      ddl-auto: validate
     show-sql: true
   flyway:
-    enabled: true
+    enabled: false
     baseline-on-migrate: true
   security:
     jwt:
       issuer: "foxblog"
-      # access token 有效期（秒）
       access-token-seconds: 7200
-      # 允许的最大时钟偏差（秒）
       clock-skew-seconds: 30
-      # 主签名私钥 PEM 路径（可使用 file: / classpath: 前缀）
       active-key:
-        id: "k1"                       # kid
+        id: "k1"
         private-pem-location: "classpath:jwt/active-private.pem"
         public-pem-location: "classpath:jwt/active-public.pem"
-        algorithm: "RS256"              # 支持 RS256 / ES256 / ES384 / ES512
-      # 历史密钥（只做验证，不再签发）
+        algorithm: "RS256"
       passive-keys:
         - id: "k0"
           public-pem-location: "classpath:jwt/passive-k0-public.pem"
           algorithm: "RS256"
-      # 是否在启动时打印 key 列表（生产建议 false）
       log-keys-at-startup: true
-
-      ## 生成 RSA 2048 密钥示例
-      #openssl genrsa -out active-private.pem 2048
-      #openssl rsa -in active-private.pem -pubout -out active-public.pem
-      #
-      ## 生成下一把即将轮换的新私钥
-      #openssl genrsa -out next-private.pem 2048
-      #openssl rsa -in next-private.pem -pubout -out next-public.pem
-      #
-      ## ECDSA (P-256) 示例
-      #openssl ecparam -name prime256v1 -genkey -noout -out ec-private.pem
-      #openssl ec -in ec-private.pem -pubout -out ec-public.pem

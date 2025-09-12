@@ -31,7 +31,7 @@ public class AdminAuth {
 
     // OpenSSH 公钥 (可选，不影响 TOTP)
     @Lob
-    @Column(name = "ssh_public_key")
+    @Column(name = "ssh_public_key", columnDefinition = "TEXT")
     private String sshPublicKey;
 
     // 创建时间

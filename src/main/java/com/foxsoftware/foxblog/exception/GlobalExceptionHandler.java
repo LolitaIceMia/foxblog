@@ -1,5 +1,6 @@
 package com.foxsoftware.foxblog.exception;
 
+import com.foxsoftware.foxblog.service.AdminAuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -54,5 +55,19 @@ public class GlobalExceptionHandler {
                 .code(code)
                 .message(msg)
                 .build();
+    }
+
+    @ExceptionHandler(AdminAuthService.AuthException.class)
+    public ResponseEntity<ApiErrorResponse> handleAuth(AdminAuthService.AuthException ex, HttpServletRequest req) {
+        String traceId = UUID.randomUUID().toString();
+        log.warn("[AUTH_FAIL] traceId={} code={} {}", traceId, ex.getCode(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiErrorResponse.builder()
+                        .timestamp(Instant.now())
+                        .traceId(traceId)
+                        .path(req.getRequestURI())
+                        .code(ex.getCode())
+                        .message(ex.getMessage())
+                        .build());
     }
 }
