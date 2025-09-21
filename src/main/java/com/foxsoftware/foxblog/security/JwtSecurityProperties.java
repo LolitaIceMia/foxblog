@@ -6,26 +6,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
-/**
- * 绑定 application.yml: spring.security.jwt.*
- *
- * 示例：
- * spring:
- *   security:
- *     jwt:
- *       issuer: foxblog
- *       access-token-seconds: 7200
- *       clock-skew-seconds: 30
- *       active-key:
- *         id: k1
- *         private-pem-location: classpath:jwt/active-private.pem
- *         public-pem-location: classpath:jwt/active-public.pem
- *         algorithm: RS256
- *       passive-keys:
- *         - id: k0
- *           public-pem-location: classpath:jwt/passive-k0-public.pem
- *           algorithm: RS256
- */
 @Configuration
 @ConfigurationProperties(prefix = "spring.security.jwt")
 @Data

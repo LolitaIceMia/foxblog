@@ -30,6 +30,7 @@ public class PostServiceImpl implements PostService {
     @Transactional
     public PostDetailResponse create(PostCreateRequest req, String operator) {
         Post post = new Post();
+        post.setTitle(req.getTitle());
         post.setContent(req.getContent());
         post.setContentHtml(markdownRenderer.render(req.getContent()));
         post.setVisibility(parseVisibility(req.getVisibility()));

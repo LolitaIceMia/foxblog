@@ -7,6 +7,7 @@ import java.util.Set;
 
 @Data
 public class PostUpdateRequest {
+    private String title;
     private String content;
     private String visibility;
     private Boolean pinned;

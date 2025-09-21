@@ -10,6 +10,7 @@ import java.util.Set;
 @Builder
 public class PostListItemResponse {
     Long id;
+    String title;
     String excerpt;
     String visibility;
     Boolean pinned;

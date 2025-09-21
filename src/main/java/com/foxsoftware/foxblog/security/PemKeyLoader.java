@@ -1,11 +1,11 @@
 package com.foxsoftware.foxblog.security;
 
+import com.foxsoftware.foxblog.util.PemUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.interfaces.ECPrivateKey;
@@ -79,14 +79,7 @@ public class PemKeyLoader {
         if (pem.contains("-----BEGIN PRIVATE KEY-----")) {
             String content = strip(pem, "PRIVATE KEY");
             byte[] der = Base64.getDecoder().decode(content);
-            PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(der);
-            try {
-                return KeyFactory.getInstance("RSA").generatePrivate(spec);
-            } catch (Exception ignore) {}
-            try {
-                return KeyFactory.getInstance("EC").generatePrivate(spec);
-            } catch (Exception ignore) {}
-            throw new GeneralSecurityException("Unsupported PKCS#8 private key");
+            return PemUtils.getPrivateKey(der);
         } else if (pem.contains("-----BEGIN RSA PRIVATE KEY-----")) {
             String content = strip(pem, "RSA PRIVATE KEY");
             byte[] pkcs1 = Base64.getDecoder().decode(content);
@@ -135,8 +128,13 @@ public class PemKeyLoader {
     // 可选：简单算法检测
     @SuppressWarnings("unused")
     private String detectKeyAlg(PrivateKey pk) {
-        if (pk instanceof RSAPrivateKey) return "RSA";
-        if (pk instanceof ECPrivateKey) return "EC";
-        return pk.getAlgorithm();
+        if (pk instanceof java.security.interfaces.RSAPrivateKey) return "RSA";
+        if (pk instanceof java.security.interfaces.ECPrivateKey) return "EC";
+        if (pk instanceof java.security.interfaces.DSAPrivateKey) return "DSA";
+        if (pk.getClass().getName().contains("EdDSAPrivateKey")) return "EdDSA";
+        String alg = pk.getAlgorithm();
+        if ("SM2".equalsIgnoreCase(alg)) return "SM2";
+        return alg;
     }
+
 }

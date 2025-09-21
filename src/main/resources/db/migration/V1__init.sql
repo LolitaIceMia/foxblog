@@ -22,7 +22,7 @@ CREATE TABLE media (
                        storage_path VARCHAR(1024) NOT NULL COMMENT '文件存储路径或对象存储key',
                        mime_type VARCHAR(255) COMMENT 'MIME类型',
                        size_bytes BIGINT UNSIGNED COMMENT '大小 (字节)',
-                       sha256_hash CHAR(64) COMMENT '去重哈希',
+                       sha256_hash VARCHAR(64) COMMENT '去重哈希',
                        created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -30,8 +30,9 @@ CREATE TABLE media (
 -- 博客/动态的主体内容
 CREATE TABLE posts (
                        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                       title TEXT NOT NULL COMMENT '标题',
                        content LONGTEXT NOT NULL COMMENT '原始文本内容',
-                       content_html MEDIUMTEXT COMMENT '预渲染HTML (可选)',
+                       content_html MEDIUMTEXT COMMENT '预渲染HTML',
                        visibility ENUM('PUBLIC','UNLISTED','PRIVATE') NOT NULL DEFAULT 'PUBLIC' COMMENT '公开性',
                        is_pinned TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否置顶',
                        reply_to_post_id BIGINT UNSIGNED COMMENT '引用的帖子ID',

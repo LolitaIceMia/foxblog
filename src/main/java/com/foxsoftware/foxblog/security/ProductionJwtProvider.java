@@ -11,12 +11,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.security.Key;
-import java.security.KeyFactory;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.concurrent.locks.ReentrantLock;
 
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -29,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * 生产用 JWT Provider：
  *  - 负责：签发 + 验证 + 密钥热加载
  *  - 实现 JwtTokenGenerator
- *  - 支持多 kid：active 用于签发，passive 用于验证旧 token
+ *  - 仅使用 spring.security.jwt.* 配置
  */
 @Slf4j
 @Component
@@ -37,31 +31,11 @@ public class ProductionJwtProvider implements JwtTokenGenerator {
 
     private final JwtSecurityProperties props;
     private final PemKeyLoader pemKeyLoader;
-    private volatile Key jwtPrivateKey;
-    private final ReentrantLock lock = new ReentrantLock();
-
     private final AtomicReference<KeyState> ref = new AtomicReference<>();
 
     public ProductionJwtProvider(JwtSecurityProperties props, PemKeyLoader pemKeyLoader) {
         this.props = props;
         this.pemKeyLoader = pemKeyLoader;
-    }
-    /**
-     * 重新加载JWT密钥（线程安全）
-     */
-    public void reloadKeys() {
-        lock.lock();
-        try {
-            byte[] keyBytes = Files.readAllBytes(Paths.get("config/jwt_private_key.pem"));
-            PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(keyBytes);
-            KeyFactory kf = KeyFactory.getInstance("RSA");
-            jwtPrivateKey = kf.generatePrivate(spec);
-            // 如有公钥也可一并加载
-        } catch (Exception e) {
-            throw new RuntimeException("密钥加载失败", e);
-        } finally {
-            lock.unlock();
-        }
     }
 
     @PostConstruct
@@ -69,8 +43,9 @@ public class ProductionJwtProvider implements JwtTokenGenerator {
         reload();
     }
 
-
-
+    /**
+     * 重新加载配置中的 active + passive 公钥集合
+     */
     public synchronized void reload() {
         if (props.getActiveKey() == null) {
             throw new IllegalStateException("spring.security.jwt.active-key 未配置");
@@ -124,7 +99,6 @@ public class ProductionJwtProvider implements JwtTokenGenerator {
                 .build();
 
         SignedJWT jwt = new SignedJWT(header, claims);
-
         try {
             JWSSigner signer = buildSigner(jwsAlg, ks.getActivePrivateKey());
             jwt.sign(signer);
@@ -211,8 +185,6 @@ public class ProductionJwtProvider implements JwtTokenGenerator {
         if (st == null) throw new IllegalStateException("Keys not loaded");
         return st;
     }
-
-    // ============ 内部结构 ============
 
     @Value
     private static class KeyState {

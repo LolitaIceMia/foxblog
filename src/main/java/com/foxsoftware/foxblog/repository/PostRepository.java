@@ -21,8 +21,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("""
             SELECT p FROM Post p
             WHERE p.visibility = :visibility
-              AND (LOWER(p.content) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                   OR LOWER(p.contentHtml) LIKE LOWER(CONCAT('%', :keyword, '%')))
+              AND (LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%')))
             ORDER BY p.createdAt DESC
             """)
     Page<Post> searchByKeywordAndVisibility(String keyword,

@@ -5,8 +5,8 @@ spring:
     password: foxpassword
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
-      # 可选：保证每次连接协商后字符集一致
       connection-init-sql: "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
+
   jpa:
     hibernate:
       naming:
@@ -14,9 +14,11 @@ spring:
         use-new-id-generator-mappings: false
       ddl-auto: validate
     show-sql: true
+
   flyway:
     enabled: false
     baseline-on-migrate: true
+
   security:
     jwt:
       issuer: "foxblog"
@@ -27,8 +29,16 @@ spring:
         private-pem-location: "classpath:jwt/active-private.pem"
         public-pem-location: "classpath:jwt/active-public.pem"
         algorithm: "RS256"
-      passive-keys:
-        - id: "k0"
-          public-pem-location: "classpath:jwt/passive-k0-public.pem"
-          algorithm: "RS256"
       log-keys-at-startup: true
+
+      # 生成 RSA 2048 密钥
+      #openssl genrsa -out active-private.pem 2048
+      #openssl rsa -in active-private.pem -pubout -out active-public.pem
+#
+      ## 生成下一把即将轮换的新私钥
+      #openssl genrsa -out next-private.pem 2048
+      #openssl rsa -in next-private.pem -pubout -out next-public.pem
+#
+      ## ECDSA (P-256) 示例
+      #openssl ecparam -name prime256v1 -genkey -noout -out ec-private.pem
+      #openssl ec -in ec-private.pem -pubout -out ec-public.pem

@@ -11,6 +11,7 @@ import java.util.Set;
 @Builder
 public class PostDetailResponse {
     Long id;
+    String title;
     String content;
     String contentHtml;
     String visibility;

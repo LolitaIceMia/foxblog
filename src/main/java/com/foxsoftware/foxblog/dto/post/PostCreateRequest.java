@@ -9,6 +9,7 @@ import java.util.Set;
 public class PostCreateRequest {
     private String content;
     private String visibility; // PUBLIC / UNLISTED / PRIVATE
+    private String title;
     private Boolean pinned;
     private Long replyToPostId;
     private List<MediaBinding> media; // 顺序

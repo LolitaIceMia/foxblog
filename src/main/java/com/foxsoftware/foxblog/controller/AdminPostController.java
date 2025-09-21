@@ -59,7 +59,6 @@ public class AdminPostController {
         var result = postService.listPublic(PageRequest.of(page, size), tag, keyword);
         return ResponseEntity.ok(result);
     }
-
     /**
      * 置顶帖子列表
      */

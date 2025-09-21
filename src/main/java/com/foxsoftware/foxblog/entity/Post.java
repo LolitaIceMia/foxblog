@@ -26,14 +26,18 @@ public class Post {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    //标题
+    @Column(nullable = false, length = 100,columnDefinition = "text")
+    private String title;
+
     // 原始文本
     @Lob
-    @Column(nullable = false)
+    @Column(columnDefinition = "longtext")
     private String content;
 
-    // 缓存好的 HTML（可选）
+    // 缓存好的 HTML
     @Lob
-    @Column(name = "content_html")
+    @Column(name = "content_html", columnDefinition = "mediumtext")
     private String contentHtml;
 
     @Enumerated(EnumType.STRING)
